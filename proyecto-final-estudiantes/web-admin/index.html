@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DistribuTech - Panel Administrativo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 2rem 0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin: 2rem 0; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .stat-card { text-align: center; }
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #2d3748; margin-bottom: 0.5rem; }
+        .stat-label { color: #666; font-size: 1.1rem; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
+        .form-control { width: 100%; padding: 0.75rem; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 1rem; }
+        .btn { background: #f5576c; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: background 0.3s; }
+        .btn:hover { background: #e53e3e; }
+        .btn-secondary { background: #6b7280; }
+        .btn-secondary:hover { background: #4b5563; }
+        .products-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .products-table th, .products-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        .products-table th { background: #f9fafb; font-weight: 600; }
+        .products-table tr:hover { background: #f9fafb; }
+        .stock-low { color: #dc2626; font-weight: bold; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 2rem; width: 90%; max-width: 600px; border-radius: 12px; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: #000; }
+        .alert { padding: 1rem; margin: 1rem 0; border-radius: 6px; }
+        .alert-success { background: #d1fae5; border: 1px solid #a7f3d0; color: #065f46; }
+        .alert-error { background: #fee2e2; border: 1px solid #fecaca; color: #991b1b; }
+        .loading { text-align: center; padding: 2rem; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🔧 Panel Administrativo</h1>
+            <p>Gestión de Inventario - DistribuTech Solutions</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Dashboard de estadísticas -->
+        <div class="dashboard">
+            <div class="card stat-card">
+                <div class="stat-number" id="totalProducts">-</div>
+                <div class="stat-label">Total Productos</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="lowStock">-</div>
+                <div class="stat-label">Stock Bajo</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-number" id="totalValue">$-</div>
+                <div class="stat-label">Valor Inventario</div>
+            </div>
+        </div>
+
+        <!-- Formulario para agregar producto -->
+        <div class="card">
+            <h3>Agregar Nuevo Producto</h3>
+            <div id="alert"></div>
+            <form id="productForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="nombre">Nombre del Producto</label>
+                        <input type="text" id="nombre" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="categoria">Categoría</label>
+                        <select id="categoria" class="form-control" required>
+                            <option value="">Seleccionar categoría</option>
+                            <option value="Laptops">Laptops</option>
+                            <option value="Smartphones">Smartphones</option>
+                            <option value="Tablets">Tablets</option>
+                            <option value="Accesorios">Accesorios</option>
+                            <option value="Monitores">Monitores</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="precio">Precio ($)</label>
+                        <input type="number" id="precio" class="form-control" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="stock">Stock</label>
+                        <input type="number" id="stock" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="descripcion">Descripción</label>
+                    <textarea id="descripcion" class="form-control" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Agregar Producto</button>
+                <button type="button" class="btn btn-secondary" onclick="resetForm()">Limpiar</button>
+            </form>
+        </div>
+
+        <!-- Lista de productos -->
+        <div class="card">
+            <h3>Productos en Inventario</h3>
+            <div id="productsLoading" class="loading">Cargando productos...</div>
+            <div id="productsContainer" style="display: none;">
+                <table class="products-table" id="productsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Categoría</th>
+                            <th>Precio</th>
+                            <th>Stock</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar producto -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h3>Editar Producto</h3>
+            <form id="editProductForm">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label for="editNombre">Nombre del Producto</label>
+                    <input type="text" id="editNombre" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCategoria">Categoría</label>
+                    <select id="editCategoria" class="form-control" required>
+                        <option value="Laptops">Laptops</option>
+                        <option value="Smartphones">Smartphones</option>
+                        <option value="Tablets">Tablets</option>
+                        <option value="Accesorios">Accesorios</option>
+                        <option value="Monitores">Monitores</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label for="editPrecio">Precio ($)</label>
+                        <input type="number" id="editPrecio" class="form-control" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editStock">Stock</label>
+                        <input type="number" id="editStock" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editDescripcion">Descripción</label>
+                    <textarea id="editDescripcion" class="form-control" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Actualizar Producto</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        
+        // Cargar estadísticas
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/estadisticas`);
+                const stats = await response.json();
+                
+                document.getElementById('totalProducts').textContent = stats.total_productos;
+                document.getElementById('lowStock').textContent = stats.productos_stock_bajo;
+                document.getElementById('totalValue').textContent = '$' + stats.valor_total_inventario.toLocaleString('es-MX');
+            } catch (error) {
+                console.error('Error al cargar estadísticas:', error);
+            }
+        }
+        
+        // Cargar productos
+        async function loadProducts() {
+            try {
+                document.getElementById('productsLoading').style.display = 'block';
+                document.getElementById('productsContainer').style.display = 'none';
+                
+                const response = await fetch(`${API_URL}/productos`);
+                const products = await response.json();
+                
+                const tbody = document.getElementById('productsTableBody');
+                tbody.innerHTML = products.map(product => `
+                    <tr>
+                        <td>${product.id}</td>
+                        <td>${product.nombre}</td>
+                        <td>${product.categoria}</td>
+                        <td>$${product.precio.toLocaleString('es-MX')}</td>
+                        <td class="${product.stock < 10 ? 'stock-low' : ''}">${product.stock}</td>
+                        <td>
+                            <button class="btn" onclick="editProduct(${product.id})" style="margin-right: 0.5rem; padding: 0.5rem 1rem;">Editar</button>
+                        </td>
+                    </tr>
+                `).join('');
+                
+                document.getElementById('productsLoading').style.display = 'none';
+                document.getElementById('productsContainer').style.display = 'block';
+            } catch (error) {
+                console.error('Error al cargar productos:', error);
+                document.getElementById('productsLoading').innerHTML = 'Error al cargar productos';
+            }
+        }
+        
+        // Agregar producto
+        document.getElementById('productForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                nombre: document.getElementById('nombre').value,
+                categoria: document.getElementById('categoria').value,
+                precio: parseFloat(document.getElementById('precio').value),
+                stock: parseInt(document.getElementById('stock').value),
+                descripcion: document.getElementById('descripcion').value
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/productos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Producto agregado exitosamente', 'success');
+                    resetForm();
+                    loadProducts();
+                    loadStats();
+                } else {
+                    showAlert('Error al agregar producto: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error de conexión: ' + error.message, 'error');
+            }
+        });
+        
+        // Editar producto
+        async function editProduct(id) {
+            try {
+                const response = await fetch(`${API_URL}/productos/${id}`);
+                const product = await response.json();
+                
+                document.getElementById('editId').value = product.id;
+                document.getElementById('editNombre').value = product.nombre;
+                document.getElementById('editCategoria').value = product.categoria;
+                document.getElementById('editPrecio').value = product.precio;
+                document.getElementById('editStock').value = product.stock;
+                document.getElementById('editDescripcion').value = product.descripcion || '';
+                
+                document.getElementById('editModal').style.display = 'block';
+            } catch (error) {
+                showAlert('Error al cargar producto: ' + error.message, 'error');
+            }
+        }
+        
+        // Actualizar producto
+        document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('editId').value;
+            const formData = {
+                nombre: document.getElementById('editNombre').value,
+                categoria: document.getElementById('editCategoria').value,
+                precio: parseFloat(document.getElementById('editPrecio').value),
+                stock: parseInt(document.getElementById('editStock').value),
+                descripcion: document.getElementById('editDescripcion').value
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/productos/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Producto actualizado exitosamente', 'success');
+                    closeEditModal();
+                    loadProducts();
+                    loadStats();
+                } else {
+                    showAlert('Error al actualizar producto: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error de conexión: ' + error.message, 'error');
+            }
+        });
+        
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+        
+        function resetForm() {
+            document.getElementById('productForm').reset();
+        }
+        
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => { alertDiv.innerHTML = ''; }, 5000);
+        }
+        
+        // Inicializar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadProducts();
+        });
+        
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

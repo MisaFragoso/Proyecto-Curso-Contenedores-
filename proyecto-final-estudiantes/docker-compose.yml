@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  proxy:
+    build: ./nginx
+    container_name: cont_proxy
+    ports:
+      - "80:80"
+    networks:
+      - red-proxy-admin
+      - red-proxy-clientes
+      - red-proxy-api
+    depends_on:
+      - web-publica
+      - web-admin
+      - api
+
+  web-publica:
+    build: ./web-publica
+    container_name: cont_web-publica
+    networks:
+      - red-proxy-clientes
+      - red-clientes-api
+    ports:
+      - "3001:80"
+
+  web-admin:
+    build: ./web-admin
+    container_name: cont_web-admin
+    networks:
+      - red-proxy-admin
+      - red-admin-api
+    ports:
+      - "3002:80"
+
+  api:
+    build: ./api
+    container_name: cont_api
+    networks:
+      - red-proxy-api
+      - red-admin-api
+      - red-clientes-api
+      - red-api-bd
+    ports:
+      - "3003:5000"
+    environment:
+      - DATABASE_HOST=database
+      - DATABASE_USER=distributec
+      - DATABASE_PASSWORD=distributec123
+      - DATABASE_NAME=inventario
+    depends_on:
+      - database
+  database:
+    image: mysql:8.0
+    container_name: cont_database
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123 
+      MYSQL_DATABASE: inventario
+      MYSQL_USER: distributec
+      MYSQL_PASSWORD: distributec123
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_info:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d
+    networks:
+      - red-api-bd
+volumes:
+  db_info:
+
+networks:
+  red-proxy-admin:
+    driver: bridge
+  red-proxy-clientes:
+    driver: bridge
+  red-proxy-api:
+    driver: bridge
+  red-admin-api:
+    driver: bridge
+  red-clientes-api:
+    driver: bridge
+  red-api-bd:
+    driver: bridge
+
